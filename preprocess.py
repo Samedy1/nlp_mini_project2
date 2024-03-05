@@ -79,6 +79,7 @@ def clean_data(text: str, transform_only: bool = False) -> str:
         
     return cleaned_text
 
+# -------------------- Feature Extraction --------------------
 # feature extraction
 # x1: count positive word
 # x2: count negative word
@@ -86,8 +87,6 @@ def clean_data(text: str, transform_only: bool = False) -> str:
 # x4 count(1st and 2nd person pronoun)
 # x5 1 if ! in doc, else 0
 # x6 log(word_count)
-
-# -------------------- Feature Extraction --------------------
 def get_count_positive_words(text):
     return len([word for word in text.split(' ') if word in positive_words])
 
