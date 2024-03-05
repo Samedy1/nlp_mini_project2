@@ -1,26 +1,13 @@
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
 import re
+import numpy as np
+from nltk import word_tokenize, sent_tokenize
+from nltk.corpus import stopwords
+from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.tag import pos_tag
 
-# --------------------------------------------------------
-class TextPreprocessor():
-    def __init__(
-        self,
-    ) -> None:
-        self.vectorizer = CountVectorizer()
-        
-    def preprocess(self, sentences: list, transform_only: bool = False) -> list:
-        preprocessed = [sentence.lower() for sentence in sentences]
-        
-        
-        # if transform_only:
-        #     return self.vectorizer.transform(preprocessed)
-        # return self.vectorizer.fit_transform(preprocessed)
-        return preprocessed
-    
-    
-
-# --------------------------------------------------------
+# -------------------- Read Data --------------------
 with open('data/positive-reviews.txt') as infile:
     positive_lst = infile.read().split('\n')
     
@@ -33,21 +20,64 @@ with open('data/positive-words.txt') as infile:
 with open('data/negative-words.txt', encoding='latin-1') as infile:
     negative_words = infile.read().split('\n')
 
-training_pos_size = int(len(positive_lst) * 0.8)
-training_neg_size = int(len(positive_lst) * 0.8)
-
-training_lst = positive_lst[:training_pos_size] + negative_lst[:training_neg_size]
-testing_lst = positive_lst[training_pos_size:] + negative_lst[training_pos_size:]
-
-training_pos_df = pd.DataFrame({
-    'review': positive_lst[:training_pos_size],
-    'sentiment': [1 for x in range(0, training_pos_size)]
+# -------------------- Create a Dataframe --------------------
+def create_df(review: list, sentiment=1):
+    return pd.DataFrame({
+    'review': review,
+    'sentiment': [sentiment for x in review]
 })
 
-test_pos_df = pd.DataFrame({
-    'review': positive_lst[training_pos_size:],
-    'sentiment': [1 for x in range(0, len(positive_lst) - training_pos_size)]
-})
+# -------------------- Preprocess --------------------
+def preprocess(lst: list[str], sentiment=1):
+    new_df = create_df(lst, sentiment=sentiment)
+    new_df['cleaned_review'] = new_df['review'].apply(clean_data)
+    new_df = create_extracted_features(new_df, from_feature='cleaned_review')
+    return new_df
+
+def clean_data(text: str, transform_only: bool = False) -> str:
+    # sentence tokenization
+    sentences = sent_tokenize(text)
+
+    # lowercase
+    sentences = [sentence.lower() for sentence in sentences]
+
+    # word tokenization
+    tokens = [word_tokenize(sentence) for sentence in sentences]
+
+    # remove stopwords
+    en_stopwords = stopwords.words('english')
+    used_pronouns = ['i', 'me', 'we', 'us', 'you']
+    for value in used_pronouns: 
+        if(value in en_stopwords): 
+            en_stopwords.remove(value)
+
+    no_stopwords = []
+    for lst in tokens:
+        no_stopwords.append([token for token in lst if token not in en_stopwords])
+    
+    # remove puntuations, and numbers, keep !
+    alphabet_pattern = re.compile(r'[a-z!]+')
+    alphabet_tokens = []
+    for lst in no_stopwords:
+        alphabet_tokens.append([''.join(alphabet_pattern.findall(token)) for token in lst])
+    
+    # lemmatization
+    lemmatizer = WordNetLemmatizer()
+    lemmatized_tokens = []
+    for lst in alphabet_tokens:
+        tagged_tokens = pos_tag(lst)
+        lemmatized_tokens.append([lemmatizer.lemmatize(token) for token, pos in tagged_tokens])
+
+    # remove empty string
+    no_empty = []
+    for lst in lemmatized_tokens:
+        no_empty.append([token for token in lst if token != ''])
+
+    cleaned_text = ''
+    for lst in no_empty:
+        cleaned_text = cleaned_text + ' '.join(lst)
+        
+    return cleaned_text
 
 # feature extraction
 # x1: count positive word
@@ -57,68 +87,53 @@ test_pos_df = pd.DataFrame({
 # x5 1 if ! in doc, else 0
 # x6 log(word_count)
 
+# -------------------- Feature Extraction --------------------
 def get_count_positive_words(text):
     return len([word for word in text.split(' ') if word in positive_words])
 
 def get_count_negative_words(text):
     return len([word for word in text.split(' ') if word in negative_words])
 
-def get_no(text):
+def get_no_count(text):
     return 1 if 'no' in text.split(' ') else 0
 
-def get_pronoun(text):
-    return 0
+def get_pronoun_count(text):
+    pronouns = ['i', 'you', 'we', 'me', 'us']
+    return len([word for word in text.split(' ') if word in pronouns])
 
 def get_exclamation_mark(text):
     return 1 if '!' in text.split(' ') else 0
 
-import numpy as np
 def get_log_word_count(text: str):
     return np.log(len(text.split(' ')))
 
-#
-training_pos_df['x1'] = training_pos_df['review'].apply(get_count_positive_words)
-training_pos_df['x2'] = training_pos_df['review'].apply(get_count_negative_words)
-training_pos_df['x3'] = training_pos_df['review'].apply(get_no)
-training_pos_df['x4'] = training_pos_df['review'].apply(get_pronoun)
-training_pos_df['x5'] = training_pos_df['review'].apply(get_exclamation_mark)
-training_pos_df['x6'] = training_pos_df['review'].apply(get_log_word_count)
+def create_extracted_features(df: pd.DataFrame, from_feature: str):
+    df2 = df.copy()
+    df2['x1'] = df2[from_feature].apply(get_count_positive_words)
+    df2['x2'] = df2[from_feature].apply(get_count_negative_words)
+    df2['x3'] = df2[from_feature].apply(get_no_count)
+    df2['x4'] = df2[from_feature].apply(get_pronoun_count)
+    df2['x5'] = df2[from_feature].apply(get_exclamation_mark)
+    df2['x6'] = df2[from_feature].apply(get_log_word_count)
+    return df2
 
-# test set
-test_pos_df['x1'] = test_pos_df['review'].apply(get_count_positive_words)
-test_pos_df['x2'] = test_pos_df['review'].apply(get_count_negative_words)
-test_pos_df['x3'] = test_pos_df['review'].apply(get_no)
-test_pos_df['x4'] = test_pos_df['review'].apply(get_pronoun)
-test_pos_df['x5'] = test_pos_df['review'].apply(get_exclamation_mark)
-test_pos_df['x6'] = test_pos_df['review'].apply(get_log_word_count)
+# -------------------- Split Data --------------------
+# size of training data in positive df
+training_pos_size = int(len(positive_lst) * 0.8)
 
-# -------------- negative review ------------
-training_neg_df = pd.DataFrame({
-    'review': negative_lst[:training_neg_size],
-    'sentiment': [0 for x in range(0, training_neg_size)]
-})
+# size of training data in negative df
+training_neg_size = int(len(positive_lst) * 0.8)
 
-test_neg_df = pd.DataFrame({
-    'review': negative_lst[training_neg_size:],
-    'sentiment': [0 for x in range(0, len(negative_lst) - training_neg_size)]
-})
+# -------------------- Convert the List into Preprocessed DataFrame --------------------
+# positive reviews
+training_pos_df = preprocess(positive_lst[:training_pos_size])
+test_pos_df = preprocess(positive_lst[training_pos_size:])
 
-training_neg_df['x1'] = training_neg_df['review'].apply(get_count_positive_words)
-training_neg_df['x2'] = training_neg_df['review'].apply(get_count_negative_words)
-training_neg_df['x3'] = training_neg_df['review'].apply(get_no)
-training_neg_df['x4'] = training_pos_df['review'].apply(get_pronoun)
-training_neg_df['x5'] = training_neg_df['review'].apply(get_exclamation_mark)
-training_neg_df['x6'] = training_neg_df['review'].apply(get_log_word_count)
+# negative reviews
+training_neg_df = preprocess(negative_lst[:training_neg_size], sentiment=0)
+test_neg_df = preprocess(negative_lst[training_neg_size:], sentiment=0)
 
-test_neg_df['x1'] = test_neg_df['review'].apply(get_count_positive_words)
-test_neg_df['x2'] = test_neg_df['review'].apply(get_count_negative_words)
-test_neg_df['x3'] = test_neg_df['review'].apply(get_no)
-test_neg_df['x4'] = test_pos_df['review'].apply(get_pronoun)
-test_neg_df['x5'] = test_neg_df['review'].apply(get_exclamation_mark)
-test_neg_df['x6'] = test_neg_df['review'].apply(get_log_word_count)
-
-# ----------- combine ---------------
-
+# -------------------- Combine --------------------
 training_df = pd.concat([
     training_pos_df,
     training_neg_df,
@@ -128,3 +143,6 @@ test_df = pd.concat([
     test_pos_df,
     test_neg_df,
 ], axis=0, ignore_index=True)
+
+# -------------------- Selected Input Features --------------------
+input_features = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6']
