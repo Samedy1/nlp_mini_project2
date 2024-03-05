@@ -46,7 +46,7 @@ def clean_data(text: str, transform_only: bool = False) -> str:
 
     # remove stopwords
     en_stopwords = stopwords.words('english')
-    used_pronouns = ['i', 'me', 'we', 'us', 'you']
+    used_pronouns = ['i', 'me', 'my', 'you', 'your']
     for value in used_pronouns: 
         if(value in en_stopwords): 
             en_stopwords.remove(value)
