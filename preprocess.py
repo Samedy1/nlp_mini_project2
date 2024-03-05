@@ -94,14 +94,14 @@ def get_count_positive_words(text):
 def get_count_negative_words(text):
     return len([word for word in text.split(' ') if word in negative_words])
 
-def get_no_count(text):
+def get_no_existed(text):
     return 1 if 'no' in text.split(' ') else 0
 
 def get_pronoun_count(text):
-    pronouns = ['i', 'you', 'we', 'me', 'us']
+    pronouns = ['i', 'me', 'my', 'you', 'your']
     return len([word for word in text.split(' ') if word in pronouns])
 
-def get_exclamation_mark(text):
+def get_exclamation_mark_existed(text):
     return 1 if '!' in text.split(' ') else 0
 
 def get_log_word_count(text: str):
@@ -111,9 +111,9 @@ def create_extracted_features(df: pd.DataFrame, from_feature: str):
     df2 = df.copy()
     df2['x1'] = df2[from_feature].apply(get_count_positive_words)
     df2['x2'] = df2[from_feature].apply(get_count_negative_words)
-    df2['x3'] = df2[from_feature].apply(get_no_count)
+    df2['x3'] = df2[from_feature].apply(get_no_existed)
     df2['x4'] = df2[from_feature].apply(get_pronoun_count)
-    df2['x5'] = df2[from_feature].apply(get_exclamation_mark)
+    df2['x5'] = df2[from_feature].apply(get_exclamation_mark_existed)
     df2['x6'] = df2[from_feature].apply(get_log_word_count)
     return df2
 
