@@ -1,11 +1,13 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
 import re
+import constant
 import numpy as np
 from nltk import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tag import pos_tag
+from nltk.stem import PorterStemmer
 
 # -------------------- Read Data --------------------
 with open('data/positive-reviews.txt') as infile:
@@ -39,10 +41,18 @@ def clean_data(text: str, transform_only: bool = False) -> str:
     sentences = sent_tokenize(text)
 
     # lowercase
-    sentences = [sentence.lower() for sentence in sentences]
+    low_sentences = [sentence.lower() for sentence in sentences]
+
+    # contraction mapping
+    def expand_contractions(text, contractions_dict):
+        for contraction, expansion in contractions_dict.items():
+            text = text.replace(contraction, expansion)
+        return text
+
+    expanded_sentences = [expand_contractions(sentence, constant.contractions_dict) for sentence in low_sentences]
 
     # word tokenization
-    tokens = [word_tokenize(sentence) for sentence in sentences]
+    tokens = [word_tokenize(sentence) for sentence in expanded_sentences]
 
     # remove stopwords
     en_stopwords = stopwords.words('english')
@@ -67,6 +77,12 @@ def clean_data(text: str, transform_only: bool = False) -> str:
     for lst in alphabet_tokens:
         tagged_tokens = pos_tag(lst)
         lemmatized_tokens.append([lemmatizer.lemmatize(token) for token, pos in tagged_tokens])
+
+    # stemming
+    # ps = PorterStemmer()
+    # stemmed_tokens = []
+    # for lst in alphabet_tokens:
+    #     stemmed_tokens.append([ps.stem(token) for token in lst])
 
     # remove empty string
     no_empty = []
