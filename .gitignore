@@ -1,2 +1,5 @@
 mini_project_2.pdf
 __pycache__
+.idea
+.ipynb_checkpoints
+venv
