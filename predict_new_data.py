@@ -1,21 +1,25 @@
 from preprocess import *
-from sklearn.ensemble import RandomForestClassifier
+import os
+from sklearn.metrics import accuracy_score
+import pickle
 
-input_features = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6']
-
-X_train = training_df[input_features]
-y_train = training_df['sentiment']
-
+max_accuracy = 0
 X_test = test_df[input_features]
 y_test = test_df['sentiment']
 
 # import model
-model = RandomForestClassifier()
-model.fit(X_train, y_train)
+for file in os.listdir('exported_models'):
+    with open(f'exported_models/{file}', 'rb') as f:
+        loaded_model = pickle.load(f)
+    y_pred = loaded_model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    if (max_accuracy < accuracy):
+        max_accuracy = accuracy
+        best_model = loaded_model
 
-from sklearn.metrics import classification_report
-y_pred = model.predict(X_test)
-print(classification_report(y_test, y_pred))
+model = best_model
+
+print(model)
 
 with open('challenge/challenge_data.txt') as infile:
     challenge_data = infile.read()
